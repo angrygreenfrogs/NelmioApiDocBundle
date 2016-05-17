@@ -18,12 +18,21 @@ use Symfony\Component\Routing\Route;
  */
 class ApiDoc
 {
+    const DEFAULT_VIEW = 'default';
+
     /**
      * Requirements are mandatory parameters in a route.
      *
      * @var array
      */
     private $requirements = array();
+
+    /**
+     * Which views is this route used. Defaults to "Default"
+     *
+     * @var array
+     */
+    private $views = array();
 
     /**
      * Filters are optional parameters in the query string.
@@ -188,6 +197,16 @@ class ApiDoc
                 unset($requirement['name']);
 
                 $this->addRequirement($name, $requirement);
+            }
+        }
+
+        if (isset($data['views'])) {
+            if (! is_array($data['views'])) {
+                $data['views'] = array($data['views']);
+            }
+
+            foreach ($data['views'] as $view) {
+                $this->addView($view);
             }
         }
 
@@ -374,6 +393,22 @@ class ApiDoc
     }
 
     /**
+     * @return array
+     */
+    public function addView($view)
+    {
+        $this->views[] = $view;
+    }
+
+    /**
+     * @return array
+     */
+    public function getViews()
+    {
+        return $this->views;
+    }
+
+    /**
      * @param string $documentation
      */
     public function setDocumentation($documentation)
@@ -441,12 +476,19 @@ class ApiDoc
 
         if (method_exists($route, 'getHost')) {
             $this->host = $route->getHost() ? : null;
+
+            //replace route placeholders
+            foreach ($route->getDefaults() as $key => $value) {
+                if (is_string($value)) {
+                    $this->host = str_replace('{' . $key . '}', $value, $this->host);
+                }
+            }
         } else {
             $this->host = null;
         }
 
-        $this->uri    = $route->getPattern();
-        $this->method = $route->getRequirement('_method') ?: 'ANY';
+        $this->uri    = $route->getPath();
+        $this->method = $route->getMethods() ? implode('|', $route->getMethods()) : 'ANY';
     }
 
     /**
@@ -625,8 +667,16 @@ class ApiDoc
             $data['requirements'] = $requirements;
         }
 
+        if ($views = $this->views) {
+            $data['views'] = $views;
+        }
+
         if ($response = $this->response) {
             $data['response'] = $response;
+        }
+
+        if ($parsedResponseMap = $this->parsedResponseMap) {
+            $data['parsedResponseMap'] = $parsedResponseMap;
         }
 
         if ($statusCodes = $this->statusCodes) {

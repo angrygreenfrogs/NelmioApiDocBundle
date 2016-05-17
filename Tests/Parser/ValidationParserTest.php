@@ -1,4 +1,14 @@
 <?php
+
+/*
+ * This file is part of the NelmioApiDocBundle.
+ *
+ * (c) Nelmio <hello@nelm.io>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace NelmioApiDocBundle\Tests\Parser;
 
 use Nelmio\ApiDocBundle\DataTypes;
@@ -15,9 +25,9 @@ class ValidationParserTest extends WebTestCase
     {
         $container  = $this->getContainer();
 
-        if($container->has('validator.mapping.class_metadata_factory')){
+        if ($container->has('validator.mapping.class_metadata_factory')) {
             $factory = $container->get('validator.mapping.class_metadata_factory');
-        }else {
+        } else {
             $factory = $container->get('validator');
         }
 

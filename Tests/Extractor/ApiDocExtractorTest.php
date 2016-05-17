@@ -17,6 +17,21 @@ use Nelmio\ApiDocBundle\Tests\WebTestCase;
 
 class ApiDocExtractorTest extends WebTestCase
 {
+    const NB_ROUTES_ADDED_BY_DUNGLAS_API_BUNDLE = 5;
+
+    private static $ROUTES_QUANTITY_DEFAULT = 34; // Routes in the default view
+    private static $ROUTES_QUANTITY_PREMIUM = 6;  // Routes in the premium view
+    private static $ROUTES_QUANTITY_TEST    = 2;  // Routes in the test view
+
+    public static function setUpBeforeClass()
+    {
+        if (class_exists('Dunglas\ApiBundle\DunglasApiBundle')) {
+            self::$ROUTES_QUANTITY_DEFAULT += self::NB_ROUTES_ADDED_BY_DUNGLAS_API_BUNDLE;
+            self::$ROUTES_QUANTITY_PREMIUM += self::NB_ROUTES_ADDED_BY_DUNGLAS_API_BUNDLE;
+            self::$ROUTES_QUANTITY_TEST    += self::NB_ROUTES_ADDED_BY_DUNGLAS_API_BUNDLE;
+        }
+    }
+
     public function testAll()
     {
         $container = $this->getContainer();
@@ -25,20 +40,17 @@ class ApiDocExtractorTest extends WebTestCase
         $data = $extractor->all();
         restore_error_handler();
 
-        if(class_exists('Dunglas\JsonLdApiBundle\DunglasJsonLdApiBundle')) {
-            $routesQuantity = 38;
-            $httpsKey = 25;
-        } else {
-            $routesQuantity = 33;
-            $httpsKey = 20;
+        $httpsKey = 21;
+        if (class_exists('Dunglas\ApiBundle\DunglasApiBundle')) {
+            $httpsKey += self::NB_ROUTES_ADDED_BY_DUNGLAS_API_BUNDLE;
         }
 
         $this->assertTrue(is_array($data));
-        $this->assertCount($routesQuantity, $data);
+        $this->assertCount(self::$ROUTES_QUANTITY_DEFAULT, $data);
 
-        $cacheFile = $container->getParameter('kernel.cache_dir') . '/api-doc.cache';
+        $cacheFile = $container->getParameter('kernel.cache_dir') . '/api-doc.cache.' . ApiDoc::DEFAULT_VIEW;
         $this->assertFileExists($cacheFile);
-        $this->assertEquals(file_get_contents($cacheFile), serialize($data));
+        $this->assertStringEqualsFile($cacheFile, serialize($data));
 
         foreach ($data as $key => $d) {
             $this->assertTrue(is_array($d));
@@ -49,13 +61,6 @@ class ApiDocExtractorTest extends WebTestCase
             $this->assertInstanceOf('Symfony\Component\Routing\Route', $d['annotation']->getRoute());
             $this->assertNotNull($d['resource']);
         }
-
-        $a1 = $data[7]['annotation'];
-        $array1 = $a1->toArray();
-        $this->assertTrue($a1->isResource());
-        $this->assertEquals('index action', $a1->getDescription());
-        $this->assertTrue(is_array($array1['filters']));
-        $this->assertNull($a1->getInput());
 
         $a1 = $data[7]['annotation'];
         $array1 = $a1->toArray();
@@ -78,12 +83,17 @@ class ApiDocExtractorTest extends WebTestCase
         $this->assertFalse(isset($array2['filters']));
         $this->assertEquals('Nelmio\ApiDocBundle\Tests\Fixtures\Form\TestType', $a2->getInput());
 
+        $a3 = $data[$httpsKey]['annotation'];
+        $this->assertTrue($a3->getHttps());
+
         $a4 = $data[11]['annotation'];
         $this->assertTrue($a4->isResource());
         $this->assertEquals('TestResource', $a4->getResource());
 
-        $a3 = $data[$httpsKey]['annotation'];
-        $this->assertTrue($a3->getHttps());
+        $a5 = $data[$httpsKey - 1]['annotation'];
+        $a5requirements = $a5->getRequirements();
+        $this->assertEquals('api.test.dev', $a5->getHost());
+        $this->assertEquals('test.dev|test.com', $a5requirements['domain']['requirement']);
     }
 
     public function testGet()
@@ -134,7 +144,7 @@ class ApiDocExtractorTest extends WebTestCase
         $this->assertNull($data);
     }
 
-    public function testGetWithInvalidPattern()
+    public function testGetWithInvalidPath()
     {
         $container = $this->getContainer();
         $extractor = $container->get('nelmio_api_doc.extractor.api_doc_extractor');
@@ -276,15 +286,187 @@ class ApiDocExtractorTest extends WebTestCase
         $this->assertTrue($parameters['required_field']['required']);
     }
 
-    public function testPutRequestDoesNeverRequireParameters()
+    public function testPatchRequestDoesNeverRequireParameters()
     {
         $container  = $this->getContainer();
         /** @var ApiDocExtractor $extractor */
         $extractor  = $container->get('nelmio_api_doc.extractor.api_doc_extractor');
         /** @var ApiDoc $annotation */
-        $annotation = $extractor->get('Nelmio\ApiDocBundle\Tests\Fixtures\Controller\TestController::requiredParametersAction', 'test_put_disables_required_parameters');
+        $annotation = $extractor->get('Nelmio\ApiDocBundle\Tests\Fixtures\Controller\TestController::requiredParametersAction', 'test_patch_disables_required_parameters');
 
         $parameters = $annotation->getParameters();
         $this->assertFalse($parameters['required_field']['required']);
+    }
+
+    public static function dataProviderForViews()
+    {
+        $offset = 0;
+        if (class_exists('Dunglas\ApiBundle\DunglasApiBundle')) {
+            $offset = self::NB_ROUTES_ADDED_BY_DUNGLAS_API_BUNDLE;
+        }
+
+        return array(
+            array('default', self::$ROUTES_QUANTITY_DEFAULT + $offset),
+            array('premium', self::$ROUTES_QUANTITY_PREMIUM + $offset),
+            array('test', self::$ROUTES_QUANTITY_TEST + $offset),
+            array('foobar', $offset),
+            array("", $offset),
+            array(null, $offset),
+        );
+    }
+
+    public function testViewNamedTest()
+    {
+        $container = $this->getContainer();
+        $extractor = $container->get('nelmio_api_doc.extractor.api_doc_extractor');
+        set_error_handler(array($this, 'handleDeprecation'));
+        $data = $extractor->all('test');
+        restore_error_handler();
+
+        $this->assertTrue(is_array($data));
+        $this->assertCount(self::$ROUTES_QUANTITY_TEST, $data);
+
+        $a1 = $data[0]['annotation'];
+        $this->assertCount(3, $a1->getViews());
+        $this->assertEquals('List resources.', $a1->getDescription());
+
+        $a2 = $data[1]['annotation'];
+        $this->assertCount(2, $a2->getViews());
+        $this->assertEquals('create another test', $a2->getDescription());
+    }
+
+    public function testViewNamedPremium()
+    {
+        $container = $this->getContainer();
+        $extractor = $container->get('nelmio_api_doc.extractor.api_doc_extractor');
+        set_error_handler(array($this, 'handleDeprecation'));
+        $data = $extractor->all('premium');
+        restore_error_handler();
+
+        $this->assertTrue(is_array($data));
+        $this->assertCount(self::$ROUTES_QUANTITY_PREMIUM, $data);
+
+        $a1 = $data[0]['annotation'];
+        $this->assertCount(2, $a1->getViews());
+        $this->assertEquals('List another resource.', $a1->getDescription());
+
+        $a2 = $data[1]['annotation'];
+        $this->assertCount(3, $a2->getViews());
+        $this->assertEquals('List resources.', $a2->getDescription());
+    }
+
+    /**
+     * @dataProvider dataProviderForViews
+     */
+    public function testForViews($view, $count)
+    {
+        $container = $this->getContainer();
+        $extractor = $container->get('nelmio_api_doc.extractor.api_doc_extractor');
+        set_error_handler(array($this, 'handleDeprecation'));
+        $data = $extractor->all($view);
+        restore_error_handler();
+
+        $this->assertTrue(is_array($data));
+        $this->assertCount($count, $data);
+    }
+
+    public function testOverrideJmsAnnotationWithApiDocParameters()
+    {
+        $container  = $this->getContainer();
+        $extractor  = $container->get('nelmio_api_doc.extractor.api_doc_extractor');
+        $annotation = $extractor->get(
+            'Nelmio\ApiDocBundle\Tests\Fixtures\Controller\TestController::overrideJmsAnnotationWithApiDocParametersAction',
+            'test_route_27'
+        );
+
+        $this->assertInstanceOf('Nelmio\ApiDocBundle\Annotation\ApiDoc', $annotation);
+
+        $array = $annotation->toArray();
+        $this->assertTrue(is_array($array['parameters']));
+
+        $this->assertEquals('string', $array['parameters']['foo']['dataType']);
+        $this->assertEquals('DateTime', $array['parameters']['bar']['dataType']);
+
+        $this->assertEquals('integer', $array['parameters']['number']['dataType']);
+        $this->assertEquals('string', $array['parameters']['number']['actualType']);
+        $this->assertEquals(null, $array['parameters']['number']['subType']);
+        $this->assertEquals(true, $array['parameters']['number']['required']);
+        $this->assertEquals('This is the new description', $array['parameters']['number']['description']);
+        $this->assertEquals(false, $array['parameters']['number']['readonly']);
+        $this->assertEquals('v3.0', $array['parameters']['number']['sinceVersion']);
+        $this->assertEquals('v4.0', $array['parameters']['number']['untilVersion']);
+
+        $this->assertEquals('object (ArrayCollection)', $array['parameters']['arr']['dataType']);
+
+        $this->assertEquals('object (JmsNested)', $array['parameters']['nested']['dataType']);
+        $this->assertEquals('integer', $array['parameters']['nested']['children']['bar']['dataType']);
+        $this->assertEquals('d+', $array['parameters']['nested']['children']['bar']['format']);
+    }
+
+    public function testJmsAnnotation()
+    {
+        $container  = $this->getContainer();
+        $extractor  = $container->get('nelmio_api_doc.extractor.api_doc_extractor');
+        $annotation = $extractor->get(
+            'Nelmio\ApiDocBundle\Tests\Fixtures\Controller\TestController::defaultJmsAnnotations',
+            'test_route_27'
+        );
+
+        $this->assertInstanceOf('Nelmio\ApiDocBundle\Annotation\ApiDoc', $annotation);
+
+        $array = $annotation->toArray();
+        $this->assertTrue(is_array($array['parameters']));
+
+        $this->assertEquals('string', $array['parameters']['foo']['dataType']);
+        $this->assertEquals('DateTime', $array['parameters']['bar']['dataType']);
+
+        $this->assertEquals('double', $array['parameters']['number']['dataType']);
+        $this->assertEquals('float', $array['parameters']['number']['actualType']);
+        $this->assertEquals(null, $array['parameters']['number']['subType']);
+        $this->assertEquals(false, $array['parameters']['number']['required']);
+        $this->assertEquals('', $array['parameters']['number']['description']);
+        $this->assertEquals(false, $array['parameters']['number']['readonly']);
+        $this->assertEquals(null, $array['parameters']['number']['sinceVersion']);
+        $this->assertEquals(null, $array['parameters']['number']['untilVersion']);
+
+        $this->assertEquals('array', $array['parameters']['arr']['dataType']);
+
+        $this->assertEquals('object (JmsNested)', $array['parameters']['nested']['dataType']);
+        $this->assertEquals('string', $array['parameters']['nested']['children']['bar']['dataType']);
+    }
+
+    public function testMergeParametersDefaultKeyNotExistingInFirstArray()
+    {
+        $container = $this->getContainer();
+        $extractor = $container->get('nelmio_api_doc.extractor.api_doc_extractor');
+
+        $mergeMethod = new \ReflectionMethod('Nelmio\ApiDocBundle\Extractor\ApiDocExtractor', 'mergeParameters');
+        $mergeMethod->setAccessible(true);
+
+        $p1 = [
+            'myPropName' => [
+                'dataType'    => 'string',
+                'actualType'  => 'string',
+                'subType'     => null,
+                'required'    => null,
+                'description' => null,
+                'readonly'    => null,
+            ]
+        ];
+
+        $p2 = [
+            'myPropName' => [
+                'dataType'    => 'string',
+                'actualType'  => 'string',
+                'subType'     => null,
+                'required'    => null,
+                'description' => null,
+                'readonly'    => null,
+                'default'     => '',
+            ]
+        ];
+
+        $mergedResult = $mergeMethod->invokeArgs($extractor, [$p1, $p2]);
+        $this->assertEquals($p2, $mergedResult);
     }
 }

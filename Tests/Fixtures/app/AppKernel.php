@@ -19,11 +19,6 @@ use Symfony\Component\HttpKernel\Kernel;
  */
 class AppKernel extends Kernel
 {
-    public function __construct($environment, $debug)
-    {
-        parent::__construct($environment, $debug);
-    }
-
     public function registerBundles()
     {
         $bundles = array(
@@ -34,9 +29,9 @@ class AppKernel extends Kernel
             new \Nelmio\ApiDocBundle\Tests\Fixtures\NelmioApiDocTestBundle(),
         );
 
-        if (class_exists('Dunglas\JsonLdApiBundle\DunglasJsonLdApiBundle')) {
+        if (class_exists('Dunglas\ApiBundle\DunglasApiBundle')) {
             $bundles[] = new \Doctrine\Bundle\DoctrineBundle\DoctrineBundle();
-            $bundles[] = new \Dunglas\JsonLdApiBundle\DunglasJsonLdApiBundle();
+            $bundles[] = new \Dunglas\ApiBundle\DunglasApiBundle();
         }
 
         return $bundles;
@@ -61,8 +56,13 @@ class AppKernel extends Kernel
     {
         $loader->load(__DIR__.'/config/'.$this->environment.'.yml');
 
-        if (class_exists('Dunglas\JsonLdApiBundle\DunglasJsonLdApiBundle')) {
-            $loader->load(__DIR__.'/config/dunglas_json_ld_api.yml');
+        if (class_exists('Dunglas\ApiBundle\DunglasApiBundle')) {
+            $loader->load(__DIR__.'/config/dunglas_api.yml');
+        }
+
+        // If symfony/framework-bundle > 3.0
+        if (!class_exists('Symfony\Bundle\FrameworkBundle\Command\RouterApacheDumperCommand')) {
+            $loader->load(__DIR__.'/config/twig_assets.yml');
         }
     }
 

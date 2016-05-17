@@ -45,7 +45,7 @@ class SwaggerFormatterTest extends WebTestCase
 
         $actual = $this->formatter->format($data, null);
 
-        if (class_exists('Dunglas\JsonLdApiBundle\DunglasJsonLdApiBundle')) {
+        if (class_exists('Dunglas\ApiBundle\DunglasApiBundle')) {
             $expected = array (
                 'swaggerVersion' => '1.2',
                 'apis' =>
@@ -83,27 +83,27 @@ class SwaggerFormatterTest extends WebTestCase
                         6 =>
                             array (
                                 'path' => '/others',
-                                'description' => '',
+                                'description' => 'Popo',
                             ),
                         7 =>
                             array (
                                 'path' => '/others',
-                                'description' => '',
+                                'description' => 'Popo',
                             ),
                         8 =>
                             array (
                                 'path' => '/others',
-                                'description' => '',
+                                'description' => 'Popo',
                             ),
                         9 =>
                             array (
                                 'path' => '/others',
-                                'description' => '',
+                                'description' => 'Popo',
                             ),
                         10 =>
                             array (
                                 'path' => '/others',
-                                'description' => '',
+                                'description' => 'Popo',
                             ),
                     ),
                 'apiVersion' => '3.14',
@@ -338,11 +338,10 @@ class SwaggerFormatterTest extends WebTestCase
                                 'path'       => '/resources/{id}.{_format}',
                                 'operations' =>
                                     array(
-
                                         array(
-                                            'method'           => 'GET',
-                                            'summary'          => 'Retrieve a resource by ID.',
-                                            'nickname'         => 'get_resources',
+                                            'method'           => 'DELETE',
+                                            'summary'          => 'Delete a resource by ID.',
+                                            'nickname'         => 'delete_resources',
                                             'parameters'       =>
                                                 array(
 
@@ -369,9 +368,9 @@ class SwaggerFormatterTest extends WebTestCase
                                                 array(),
                                         ),
                                         array(
-                                            'method'           => 'DELETE',
-                                            'summary'          => 'Delete a resource by ID.',
-                                            'nickname'         => 'delete_resources',
+                                            'method'           => 'GET',
+                                            'summary'          => 'Retrieve a resource by ID.',
+                                            'nickname'         => 'get_resources',
                                             'parameters'       =>
                                                 array(
 

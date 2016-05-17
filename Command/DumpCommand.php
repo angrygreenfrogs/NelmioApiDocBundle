@@ -11,6 +11,7 @@
 
 namespace Nelmio\ApiDocBundle\Command;
 
+use Nelmio\ApiDocBundle\Annotation\ApiDoc;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -33,6 +34,7 @@ class DumpCommand extends ContainerAwareCommand
                 'Output format like: ' . implode(', ', $this->availableFormats),
                 $this->availableFormats[0]
             )
+            ->addOption('view', '', InputOption::VALUE_OPTIONAL, '', ApiDoc::DEFAULT_VIEW)
             ->addOption('no-sandbox', '', InputOption::VALUE_NONE)
             ->setName('api:doc:dump')
             ;
@@ -41,9 +43,11 @@ class DumpCommand extends ContainerAwareCommand
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $format = $input->getOption('format');
+        $view = $input->getOption('view');
+
         $routeCollection = $this->getContainer()->get('router')->getRouteCollection();
 
-        if (!$input->hasOption('format') || in_array($format, array('json'))) {
+        if ($format == 'json') {
             $formatter = $this->getContainer()->get('nelmio_api_doc.formatter.simple_formatter');
         } else {
             if (!in_array($format, $this->availableFormats)) {
@@ -57,12 +61,12 @@ class DumpCommand extends ContainerAwareCommand
             $formatter->setEnableSandbox(false);
         }
 
-        if ('html' === $format) {
+        if ('html' === $format && method_exists($this->getContainer(), 'enterScope')) {
             $this->getContainer()->enterScope('request');
             $this->getContainer()->set('request', new Request(), 'request');
         }
 
-        $extractedDoc = $this->getContainer()->get('nelmio_api_doc.extractor.api_doc_extractor')->all();
+        $extractedDoc = $this->getContainer()->get('nelmio_api_doc.extractor.api_doc_extractor')->all($view);
         $formattedDoc = $formatter->format($extractedDoc);
 
         if ('json' === $format) {
